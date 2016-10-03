@@ -25,7 +25,7 @@ module AwsmaRails
     # @return [Net::HTTP] response of analytics report (response code should be 202 if successful)
     def report_event(client_id, session_id, app_title, app_package_name, event_name, attributes = {}, metrics = {})
       awsma_request = AwsmaPostRequest.new(@awsma_endpoint_url,
-                                           create_analytics_data(event_name, session_id, attributes, metrics),
+                                           create_analytics_data(event_name, session_id, [{'attributes' => attributes, 'metrics' => metrics}]),
                                            @user_agent,
                                            create_client_context(client_id, app_title, app_package_name),
                                            @cognito_credentials)
@@ -43,18 +43,22 @@ module AwsmaRails
 
     private
 
-    def create_analytics_data(event_name, session_id, attributes, metrics)
+    def create_analytics_data(event_name, session_id, attributes_and_metrics)
       timestamp = Time.now.utc.iso8601
 
-      aws_analytics_data = {'events' => [{
-                                             'eventType' => event_name,
-                                             'timestamp' => timestamp,
-                                             'version' => 'v2.0',
-                                             'session' => {'id' => session_id,
-                                                           'startTimestamp' => timestamp},
-                                             'attributes' => attributes,
-                                             'metrics' => metrics
-                                         }]}
+      events = attributes_and_metrics.map do |event_data|
+        {
+          'eventType' => event_name,
+          'timestamp' => timestamp,
+          'version' => 'v2.0',
+          'session' => {'id' => session_id,
+                        'startTimestamp' => timestamp},
+          'attributes' => event_data['attributes'],
+          'metrics' => event_data['metrics']
+        }
+      end
+
+      aws_analytics_data = {'events' => events}
 
       aws_analytics_data.to_json
     end
