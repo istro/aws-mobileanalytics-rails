@@ -24,8 +24,19 @@ module AwsmaRails
     # @param  [Hash]    metrics     The custom events metrics (optional)
     # @return [Net::HTTP] response of analytics report (response code should be 202 if successful)
     def report_event(client_id, session_id, app_title, app_package_name, event_name, attributes = {}, metrics = {})
+      self.report_events(client_id, session_id, app_title, app_package_name, event_name, [{ 'attributes' => attributes, 'metrics' => metrics }])
+    end
+
+    # @param  [String]  client_id   The users mobile analytics client id
+    # @param  [String]  session_id  The users mobile analytics current session id (if there is no session just enter an empty string or something like 'no-session')
+    # @param  [String]  app_title   The app title (ex: Fun Game)
+    # @param  [String]  app_package_name  The app package name (ex: com.example.fungame)
+    # @param  [String]  event_name  The name of the custom event to be reported to amazon
+    # @param  [Hash]    attributes_and_metrics  An array of custom events attributes and metrics (optional)
+    # @return [Net::HTTP] response of analytics report (response code should be 202 if successful)
+    def report_events(client_id, session_id, app_title, app_package_name, event_name, attributes_and_metrics = [])
       awsma_request = AwsmaPostRequest.new(@awsma_endpoint_url,
-                                           create_analytics_data(event_name, session_id, [{'attributes' => attributes, 'metrics' => metrics}]),
+                                           create_analytics_data(event_name, session_id, attributes_and_metrics),
                                            @user_agent,
                                            create_client_context(client_id, app_title, app_package_name),
                                            @cognito_credentials)

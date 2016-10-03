@@ -48,8 +48,7 @@ describe AwsmaRails::Reporter do
     end
   end
 
-  describe '#report_event' do
-    before(:each) do
+  def common_report_setup
       @awsma_endpoint_url = 'http://www.thumzap.com:3000/a/b/c'
       @awsma_app_id = 'awsma_app_id'
       @cognito_pool_id = 'cognito_pool_id'
@@ -91,6 +90,81 @@ describe AwsmaRails::Reporter do
       @app_title = 'app_title'
       @app_package_name = 'app_package_name'
       @event_name = 'event_name'
+  end
+
+  describe '#report_events' do
+    let(:report_events) {
+      @awsma_reporter.report_events(@client_id,
+                                    @session_id,
+                                    @app_title,
+                                    @app_package_name,
+                                    @event_name,
+                                    @event_attributes_and_metrics)
+    }
+
+    before(:each) do
+      common_report_setup
+    end
+
+    it 'should send all the attributes and metrics provided' do
+      expected_analytics_data = {'events' => [{
+                                                  'eventType' => @event_name,
+                                                  'timestamp' => @current_time.utc.iso8601,
+                                                  'version' => 'v2.0',
+                                                  'session' => {'id' => @session_id,
+                                                                'startTimestamp' => @current_time.utc.iso8601},
+                                                  'attributes' => @event_attributes,
+                                                  'metrics' => @event_metrics
+                                              },
+                                              {
+                                                  'eventType' => @event_name,
+                                                  'timestamp' => @current_time.utc.iso8601,
+                                                  'version' => 'v2.0',
+                                                  'session' => {'id' => @session_id,
+                                                                'startTimestamp' => @current_time.utc.iso8601},
+                                                  'attributes' => @event_attributes,
+                                                  'metrics' => @event_metrics
+                                              }]}.to_json
+
+      expected_aws_client_context = {
+          'client' => {
+              'client_id' => @client_id,
+              'app_title' => @app_title,
+              'app_package_name' => @app_package_name
+          },
+          'env' => {
+              'platform' => 'linux',
+              'model' => 'SERVER'
+          },
+          'services' => {
+              'mobile_analytics' => {
+                  'app_id' => @awsma_app_id,
+                  'sdk_name' => 'awsma_rails',
+                  'sdk_version' => AwsmaRails::VERSION
+              }
+          }
+      }.to_json
+
+      expect(AwsmaRails::AwsmaPostRequest).to receive(:new).with(@awsma_endpoint_url,
+                                                                 expected_analytics_data,
+                                                                 'Rails Server',
+                                                                 expected_aws_client_context,
+                                                                 @cognito_credentials_1).and_return(@awsma_post_request_mock)
+
+      @event_attributes_and_metrics = [
+        { 'attributes' => @event_attributes,
+          'metrics' => @event_metrics },
+        { 'attributes' => @event_attributes,
+          'metrics' => @event_metrics }
+      ]
+
+      report_events
+    end
+  end
+
+  describe '#report_event' do
+    before(:each) do
+      common_report_setup
     end
 
     shared_context 'test_common_logic' do
